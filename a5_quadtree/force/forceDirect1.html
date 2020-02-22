@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>force</title>
+	<script type="text/javascript" src="d3.v4.js"></script>
+	<style type="text/css">
+		.pp{
+
+		}
+	</style>
+</head>
+<body>
+	<script type="text/javascript">
+		var L=100,	//Hook's L
+			K_r=100,//库伦系数
+			K_s=0.25,//弹力系数
+			delta_t=50,
+			svg,
+			width=1200,
+			height=800,
+			N=50;	//nodes数组的长度
+		var r=8;
+		//nodes初始化
+		var nodes=[];
+		for (var i = 0; i < N; i++) {
+			var cx=Math.floor(Math.random()*(width-2*r)+r);
+			var cy=Math.floor(Math.random()*(height-2*r)+r);
+			var neighbors=[];
+			var neiLength=Math.floor(Math.random()*3);
+			for (var j = 0; j < neiLength; j++) {
+				var temp=Math.floor(Math.random()*N);
+				while(neighbors.indexOf(temp)!=-1)
+					temp=Math.floor(Math.random()*N);
+				neighbors.push(temp);
+			}
+			temp={x: cx, y: cy, force_x: 0, force_y: 0, neighbors: neighbors};
+			nodes.push(temp);
+		}
+		for (var i = 0; i < N; i++) {
+			var node=nodes[i];
+			for (var j = 0; j < node.neighbors.length; j++) {
+				var nei=node.neighbors[j];
+				if((nodes[nei].neighbors.indexOf(i))==-1)
+					nodes[nei].neighbors.push(i);
+			}
+		}
+		svg=d3.select("body")
+				.append("svg")
+				.attr("width", width)
+				.attr("height", height);
+		var color=d3.scaleOrdinal(d3.schemeCategory20);
+		var pp=svg.selectAll(".pp")
+			.data(nodes)
+			.enter()
+			.append("g")
+			.attr("class", "pp");
+		var each=pp.selectAll("line")
+				.data(function (d) {
+					return d.neighbors;
+				})
+				.enter()
+				.append("line")
+				.attr("x1", function (d) {
+					var par=this.parentNode;
+					return par.__data__.x;
+				})
+				.attr("y1", function (d) {
+					var par=this.parentNode;
+					return par.__data__.y;
+				})
+				.attr("x2", function (d) {
+					return nodes[d].x;
+				})
+				.attr("y2", function (d) {
+					return nodes[d].y;
+				})
+				.attr("stroke", "#DCDCDC")
+				.attr("stroke-width", 3);
+
+		svg.selectAll("circle")
+			.data(nodes)
+			.enter()
+			.append("circle")
+			.attr("cx", function (d) {
+				return d.x;
+			})
+			.attr("cy", function (d) {
+				return d.y;
+			})
+			.attr("r", r)
+			.attr("fill", function (d, i) {
+				return color(i);
+			})
+			.attr("opacity", 1);
+			//入场的动画
+		var quadTree=createQuad();
+			for (var d = 0; d < delta_t; d++) {
+				//未用四叉树方法
+				/*for (var i = 0; i < N-1; i++) {
+					var node1=nodes[i];
+					for (var j = i+1; j < N; j++) {
+						var node2=nodes[j];
+						var dx=node2.x - node1.x;
+						var dy=node2.y - node1.y;
+						if(dx!=0||dy!=0)
+						{
+							var distanceSquared=dx*dx+dy*dy,
+								distance=Math.sqrt(distanceSquared),
+								force=K_r/distanceSquared,
+								fx=force*dx/distance,
+								fy=force*dy/distance;
+							node1.force_x-=fx;
+							node1.force_y-=fy;
+							node2.force_x+=fx;
+							node2.force_y+=fy;
+						}
+					}
+				}*/
+				//使用四叉树优化
+				for (var i = 0; i < quadTree.length-1; i++) {
+					var node1=quadTree[i];
+					for (var j = i+1; j < quadTree.length; j++) {
+						var node2=quadTree[j];
+						var dx=node2.x - node1.x;
+						var dy=node2.y - node1.y;
+						if(dx!=0||dy!=0)
+						{
+							var distanceSquared=dx*dx+dy*dy,
+								distance=Math.sqrt(distanceSquared),
+								force=K_r/distanceSquared,
+								fx=force*dx/distance,
+								fy=force*dy/distance;
+							for (var k = 0; k < node1.nodes.length; k++) {
+								var index=node1.nodes[k];
+								nodes[index].force_x-=fx;
+								nodes[index].force_y-=fy;
+							}
+							for (var k = 0; k < node2.nodes.length; k++) {
+								var index=node2.nodes[k];
+								nodes[index].force_x+=fx;
+								nodes[index].force_y+=fy;
+							}
+						}
+					}
+				}
+				for (var i = 0; i < N; i++) {
+					var node1=nodes[i];
+					for (var j = 0; j < node1.neighbors.length; j++) {
+						var i2=node1.neighbors[j];
+						var node2=nodes[i2];
+						if(i<i2)
+						{
+							dx=node2.x - node1.x;
+							dy=node2.y - node1.y;
+							if(dx!=0||dy!=0)
+							{
+								var distance=Math.sqrt(dx*dx+dy*dy);
+									force=K_s*(distance - L);
+									fx=force*dx/distance;
+									fy=force*dy/distance;
+								node1.force_x+=fx;
+								node1.force_y+=fy;
+								node2.force_x-=fx;
+								node2.force_y-=fy;
+							}
+						}
+					}
+				}
+				for (var i = 0; i < N; i++) {
+					var node=nodes[i],
+						dx=node.force_x,
+						dy=node.force_y;
+						distanceSquared=dx*dx+dy*dy;
+					if(distanceSquared>width)
+					{
+						s=Math.sqrt(width/distanceSquared);
+						dx*=s;
+						dy*=s;
+					}
+					nodes[i].x+=dx;
+					nodes[i].y+=dy;
+					nodes[i].force_x=0;
+					nodes[i].force_y=0;
+				}
+
+				pp.data(nodes)
+					.selectAll("line")
+					.data(function (d) {
+						return d.neighbors;
+					})
+					.transition()
+					.duration(1500)
+					.attr("x1", function (d) {
+						var par=this.parentNode;
+						return par.__data__.x;
+					})
+					.attr("y1", function (d) {
+						var par=this.parentNode;
+						return par.__data__.y;
+					})
+					.attr("x2", function (d) {
+						return nodes[d].x;
+					})
+					.attr("y2", function (d) {
+						return nodes[d].y;
+					});
+				svg.selectAll("circle")
+					.data(nodes)
+					.transition()
+					.duration(1500)
+					.attr("cx", function (d) {
+						return d.x;
+					})
+					.attr("cy", function (d) {
+						return d.y;
+					});
+			}
+
+		function force_layout() {
+			for (var d = 0; d < delta_t; d++) {
+				for (var i = 0; i < N-1; i++) {
+					var node1=nodes[i];
+					for (var j = i+1; j < N; j++) {
+						var node2=nodes[j];
+						var dx=node2.x - node1.x;
+						var dy=node2.y - node1.y;
+						if(dx!=0||dy!=0)
+						{
+							var distanceSquared=dx*dx+dy*dy,
+								distance=Math.sqrt(distanceSquared),
+								force=K_r/distanceSquared,
+								fx=force*dx/distance,
+								fy=force*dy/distance;
+							node1.force_x-=fx;
+							node1.force_y-=fy;
+							node2.force_x+=fx;
+							node2.force_y+=fy;
+						}
+					}
+				}
+				for (var i = 0; i < N; i++) {
+					var node1=nodes[i];
+					for (var j = 0; j < node1.neighbors.length; j++) {
+						var i2=node1.neighbors[j];
+						var node2=nodes[i2];
+						if(i<i2)
+						{
+							dx=node2.x - node1.x;
+							dy=node2.y - node1.y;
+							if(dx!=0||dy!=0)
+							{
+								var distance=Math.sqrt(dx*dx+dy*dy);
+									force=K_s*(distance - L);
+									fx=force*dx/distance;
+									fy=force*dy/distance;
+								node1.force_x+=fx;
+								node1.force_y+=fy;
+								node2.force_x-=fx;
+								node2.force_y-=fy;
+							}
+						}
+					}
+				}
+				for (var i = 0; i < N; i++) {
+					var node=nodes[i],
+						dx=node.force_x,
+						dy=node.force_y;
+						distanceSquared=dx*dx+dy*dy;
+					if(distanceSquared>width)
+					{
+						s=Math.sqrt(width/distanceSquared);
+						dx*=s;
+						dy*=s;
+					}
+					nodes[i].x+=dx;
+					nodes[i].y+=dy;
+					nodes[i].force_x=0;
+					nodes[i].force_y=0;
+				}
+
+				pp.data(nodes)
+					.selectAll("line")
+					.data(function (d) {
+						return d.neighbors;
+					})
+					//.transition()
+					//.duration(1500)
+					.attr("x1", function (d) {
+						var par=this.parentNode;
+						return par.__data__.x;
+					})
+					.attr("y1", function (d) {
+						var par=this.parentNode;
+						return par.__data__.y;
+					})
+					.attr("x2", function (d) {
+						return nodes[d].x;
+					})
+					.attr("y2", function (d) {
+						return nodes[d].y;
+					});
+				svg.selectAll("circle")
+					.data(nodes)
+					//.transition()
+					//.duration(1500)
+					.attr("cx", function (d) {
+						return d.x;
+					})
+					.attr("cy", function (d) {
+						return d.y;
+					});
+			}
+		}
+	delta_t=3;
+	svg.selectAll("circle")
+		.call(d3.drag().on("drag", function (d) {
+			d.x=d3.event.x;
+			d.y=d3.event.y;
+			force_layout();
+			//d.x=d3.event.x;
+			//d.y=d3.event.y;
+		}));
+
+	//var quadTree=[];
+	//创建四叉树
+	function createQuad() {
+		var MAX=3;
+		var quadTree=[],
+			empty=[],
+			first={x:0, y:0, left:(width/2), bottom:(height/2), right:width, top:0, nodes:[], children:[]},
+			second={x:0, y:0, left:0, bottom:(height/2), right:(width/2), top:0, nodes:[], children:[]},
+			third={x:0, y:0, left:0, bottom:height, right:(width/2), top:(height/2), nodes:[], children:[]},
+			forth={x:0, y:0, left:(width/2), bottom:height, right:width, top:(height/2), nodes:[], children:[]};
+		quadTree.push(first);
+		quadTree.push(second);
+		quadTree.push(third);
+		quadTree.push(forth);
+		for (var i = 0; i < nodes.length; i++) {
+			var curr=nodes[i];
+			var firstB=false, secondB=false, thirdB=false, forthB=false, nowhere=false;
+			if(inArea(curr, first))
+				firstB=true;
+			else if(inArea(curr, second))
+				secondB=true;
+			else if(inArea(curr, third))
+				thirdB=true;
+			else if(inArea(curr, forth))
+				forthB=true;
+			else
+				nowhere=true;
+
+			if(firstB)
+				first.nodes.push(i);
+			else if(secondB)
+				second.nodes.push(i);
+			else if(thirdB)
+				third.nodes.push(i);
+			else if(forthB)
+				forth.nodes.push(i);
+		}
+		for (var i = 0; i < quadTree.length; i++) {
+				if(quadTree[i].nodes.length>MAX)
+				{
+					createQuadChild(quadTree[i]);
+					var fatherNodes=[];
+					first=quadTree[i].children[0];
+					second=quadTree[i].children[1];
+					third=quadTree[i].children[2];
+					forth=quadTree[i].children[3];
+					for (var j = 0; j < quadTree[i].nodes.length; j++) {
+						var curr=nodes[quadTree[i].nodes[j]];
+						var index=quadTree[i].nodes[j];
+						var firstB=false, secondB=false, thirdB=false, forthB=false, nowhere=false;
+						if(inArea(curr, first))
+							firstB=true;
+						else if(inArea(curr, second))
+							secondB=true;
+						else if(inArea(curr, third))
+							thirdB=true;
+						else if(inArea(curr, forth))
+							forthB=true;
+						else
+							nowhere=true;
+
+						if(firstB)
+							first.nodes.push(index);
+						else if(secondB)
+							second.nodes.push(index);
+						else if(thirdB)
+							third.nodes.push(index);
+						else if(forthB)
+							forth.nodes.push(index);
+						else if(nowhere)
+							fatherNodes.push(index);
+					}
+					quadTree[i].nodes=fatherNodes;
+					quadTree.push(first);
+					quadTree.push(second);
+					quadTree.push(third);
+					quadTree.push(forth);
+				}
+			}
+		var result=[];
+		for (var i = 0; i < quadTree.length; i++) {
+			if(quadTree[i].nodes.length>0)
+			{
+				for (var j = 0; j < quadTree[i].nodes.length; j++) {
+					quadTree[i].x+=nodes[quadTree[i].nodes[j]].x;
+					quadTree[i].y+=nodes[quadTree[i].nodes[j]].y;
+				}
+				quadTree[i].x/=quadTree[i].nodes.length;
+				quadTree[i].y/=quadTree[i].nodes.length;
+				result.push(quadTree[i]);
+			}
+		}
+		return result;
+	}
+	function createQuadChild(father) {
+		var left=father.left, bottom=father.bottom, right=father.right, top=father.top;
+		var first={x:0, y:0, left:((right-left)/2+left), bottom:((bottom-top)/2+top), right:right, top:top, nodes:[], children:[]},
+			second={x:0, y:0, left:left, bottom:((bottom-top)/2+top), right:((right-left)/2+left), top:top, nodes:[], children:[]},
+			third={x:0, y:0, left:left, bottom:bottom, right:((right-left)/2+left), top:((bottom-top)/2+top), nodes:[], children:[]},
+			forth={x:0, y:0, left:((right-left)/2+left), bottom:bottom, right:right, top:((bottom-top)/2+top), nodes:[], children:[]};
+		father.children.push(first);
+		father.children.push(second);
+		father.children.push(third);
+		father.children.push(forth);
+	}
+	function inArea(node, TreeNode) {
+		if(node.x>=TreeNode.left&&node.x<=TreeNode.right&&node.y>=TreeNode.top&&node.y<=TreeNode.bottom)
+			return true;
+		return false;
+	}
+	</script>
+</body>
+</html>

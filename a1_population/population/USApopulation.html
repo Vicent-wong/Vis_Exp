@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Changes in the US population structure</title>
+<style>
+.clear{clear: both;}
+
+body {
+  font-family: sans-serif;
+  font-size: 16px;
+  width: 1300px;
+  margin: 1em auto;
+  position: relative;
+}
+h1, h2 {
+  text-align: center;
+  font-family: "PT Sans", Helvetica;
+  font-weight: 300;
+}
+h1 {
+  font-size: 4em;
+  margin: .5em 0 0 0;
+}
+h2 {
+  font-size: 2em;
+  margin: 1em 0 0 .5em;
+  border-bottom: solid #ccc 1px;
+}
+h3 {
+  text-align: center;
+  font-family: "PT Sans", Helvetica;
+  font-weight: 300;
+  font-size: 2em;
+  margin: 1em 0 0.5em;
+  border-bottom: solid #ccc 1px;
+}
+.visleft {
+  float:left;
+  width:600px;
+}
+.visright {
+  float:right;
+  width:600px;
+}
+#circle {
+    width: 30px;
+    height: 30px;
+    background: pink;
+    -moz-border-radius: 50px;
+    -webkit-border-radius: 50px;
+    border-radius: 50px;
+ }
+ #circle2 {
+    width: 30px;
+    height: 30px;
+    background: steelblue;
+    -moz-border-radius: 50px;
+    -webkit-border-radius: 50px;
+    border-radius: 50px;
+ }
+.bar--men {
+  fill: steelblue;
+}
+
+.bar--women {
+  fill: pink;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.div_inline{
+display: inline-block
+}
+.grid .tick {
+    stroke: lightgrey;
+    opacity: 0.7;
+}
+.grid path {
+    stroke-width: 0;
+}
+</style>
+<body>
+<h2>Changes in the US population structure</h2>
+<div class="vis">
+
+	<div class="visleft" id="visleft">
+		<h3>Population Pyramid of 1900</h3>
+		<div class="div_inline" id="circle" ></div>
+		<div class="div_inline" "> <p>female</p></div>
+	</div>
+	
+	<div class="visright" id="visright">
+		<h3>Population Pyramid of 2000</h3>
+<!--div class="clear"></div-->
+		<div class="div_inline" id="circle2"></div>
+		<div class="div_inline" > <p>male</p></div>
+	</div>
+	
+</div>
+<script src="d3.v3.js"></script>
+<!--script src="saveSvgAsPng.js"></script-->
+<script>
+//定义相关尺寸
+//margin定义svg画图的上、右、下、左的外边距
+var margin = {top: 20, right: 30, bottom: 60, left: 30},
+    width = 600 - margin.left - margin.right,
+    height = 800 - margin.top - margin.bottom;
+//为x轴定义线性比例尺，值域的定义可以看出，为0到width
+var x = d3.scale.linear()
+    .range([0, width]);
+//为y轴定义新的虚数比例尺，值域为从height到0，每一层的差值为0.05
+var y = d3.scale.ordinal()
+    .rangeRoundBands([height,0], 0.05);
+    //.title="age group";
+//定义格栅绘制函数
+function make_x_axis(){
+    return d3.svg.axis()
+        .scale(x)
+        .orient("bottom")
+        .ticks(10);
+}
+//定义x坐标轴
+var xAxis = d3.svg.axis()
+    .scale(x)//设置x轴的比例尺
+    .orient("bottom")//x轴的坐标刻度文字在下侧
+	.tickSize(5);//坐标轴上刻度线的长度为5
+//定义y坐标轴
+var yAxis = d3.svg.axis()
+    .scale(y)//设置y轴的比例尺
+    .orient("left")//y轴坐标刻度的文字在左侧
+    .tickSize(0)//设置坐标轴上刻度线的长短
+    .tickPadding(5);//刻度线和刻度文字之间的间隔，这个值默认为3
+
+//定义左侧svg画布
+var svgleft = d3.select("#visleft").append("svg")
+	//设置svg画布的宽度
+    .attr("width", width + margin.left + margin.right)
+	//设置svg画布的高度
+    .attr("height", height + margin.top + margin.bottom)
+	.append("g")
+	//定位svg画布
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+//定义右侧svg画布	
+var svgright = d3.select("#visright").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+	.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");	
+
+d3.csv("census1900.csv", type, function(error, data) {
+	//获取所有行中最大人口数
+	var r = d3.max(data, function(d) { return d.People; });
+	//设置x轴比例尺的定义域，可以看出x轴表示人口数
+	x.domain([-r,r]).nice();
+	//设置y轴比例尺的定义域，y轴表示年龄的变化
+	y.domain(data.map(function(d) { return d.Age; }));
+//绘制柱状图
+	svgleft.selectAll("rect")
+		.data(data)
+		.enter().append("rect")
+		.attr("class", function(d) { return "bar bar--" + (d.Sex == 1 ? "women" : "men"); })
+		.attr("x", function(d) { return x(d.Sex == 1 ? -Math.abs(d.People - 0) : 0); })
+		.attr("y", function(d) { return y(d.Age); })
+		.attr("width", function(d) { return Math.abs(x(d.People) - x(0)); })
+		.attr("height", y.rangeBand());
+//绘制x轴
+	svgleft.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis)
+		.selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-65)");
+
+//绘制格栅-x方向
+	svgleft.append("g")
+		.attr("class", "grid")
+		.attr("transform", "translate(0," + height + ")")
+		.call(make_x_axis()
+        .tickSize(-height, 0, 0)
+        .tickFormat("")
+         );
+//绘制y轴
+	svgleft.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(" + x(0) + ",0)")
+		.call(yAxis);
+		
+	//增加一个y轴的标签
+	svgleft.append("text")
+				.attr("transform", "translate(" + (width/2) + "," + (-5) + ")")
+				.style("text-anchor", "middle")
+				.text("Age");
+
+	//增加一个x轴的标签
+	svgleft.append("text")
+				.attr("transform", "translate(" + (width/2) + "," + (height-30+ margin.bottom) + ")")
+				.style("text-anchor", "middle")
+				.text("People");
+});
+
+d3.csv("census2000.csv", type, function(error, data) {
+	var r = d3.max(data, function(d) { return d.People; });
+	x.domain([-r,r]).nice();
+	y.domain(data.map(function(d) { return d.Age; }));
+	
+	svgright.selectAll(".bar")
+		.data(data)
+		.enter().append("rect")
+		.attr("class", function(d) { return "bar bar--" + (d.Sex == 1 ? "women" : "men"); })
+		.attr("x", function(d) { return x(d.Sex == 1 ? -Math.abs(d.People - 0) : 0); })
+		.attr("y", function(d) { return y(d.Age); })
+		.attr("width", function(d) { return Math.abs(x(d.People) - x(0)); })
+		.attr("height", y.rangeBand());
+
+	svgright.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis)
+		.selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-65)");
+	//绘制格栅-x方向
+	svgright.append("g")
+		.attr("class", "grid")
+		.attr("transform", "translate(0," + height + ")")
+		.call(make_x_axis()
+        .tickSize(-height, 0, 0)
+        .tickFormat("")
+         );
+	svgright.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(" + x(0) + ",0)")
+		.call(yAxis);
+		
+	//增加一个y轴的标签
+	svgright.append("text")
+				.attr("transform", "translate(" + (width/2) + "," + (-5) + ")")
+				.style("text-anchor", "middle")
+				.text("Age");
+	//增肌一个x轴标签
+	svgright.append("text")
+				.attr("transform", "translate(" + (width/2) + "," + (height-30+ margin.bottom) + ")")
+				.style("text-anchor", "middle")
+				.text("People");
+});
+
+function type(d) {
+	d.People = +d.People;
+	return d;
+}
+</script>
+</body>

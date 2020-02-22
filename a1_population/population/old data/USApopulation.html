@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>美国人口变化1900——2000</title>
+<style>
+.clear{clear: both;}
+body {
+  font-family: sans-serif;
+  font-size: 16px;
+  width: 1300px;
+  margin: 1em auto;
+  position: relative;
+}
+h1, h2 {
+  text-align: center;
+  font-family: "PT Sans", Helvetica;
+  font-weight: 300;
+}
+h1 {
+  font-size: 4em;
+  margin: .5em 0 0 0;
+}
+h2 {
+  font-size: 2em;
+  margin: 1em 0 0.5em;
+  border-bottom: solid #ccc 1px;
+}
+h3 {
+  text-align: center;
+  font-family: "PT Sans", Helvetica;
+  font-weight: 300;
+  font-size: 2em;
+  margin: 1em 0 0.5em;
+  border-bottom: solid #ccc 1px;
+}
+.visleft {
+  float:left;
+  width:600px;
+}
+.visright {
+  float:right;
+  width:600px;
+}
+
+.bar--men {
+  fill: steelblue;
+}
+
+.bar--women {
+  fill: darkorange;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+</style>
+<body>
+<h1>美国人口变化1900——2000</h1>
+<h2>人口老龄化</h2>
+<div class="vis">
+	<div class="visleft" id="visleft">
+		<h3>1900年人口年龄结构</h3>
+	</div>
+	<div class="visright" id="visright">
+		<h3>2000年人口年龄结构</h3>
+	</div>
+	<div class="clear"></div>
+</div>
+<script src="d3.v3.js"></script>
+<script>
+var margin = {top: 20, right: 30, bottom: 40, left: 30},
+    width = 600 - margin.left - margin.right,
+    height = 800 - margin.top - margin.bottom;
+
+var x = d3.scale.linear()
+    .range([0, width]);
+
+var y = d3.scale.ordinal()
+    .rangeRoundBands([0, height], 0.1);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left")
+    .tickSize(0)
+    .tickPadding(6);
+
+var svgleft = d3.select("#visleft").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+	.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+	
+var svgright = d3.select("#visright").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+	.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");	
+
+d3.csv("census2000.csv", type, function(error, data) {
+	var r = d3.max(data, function(d) { return d.People; });
+	x.domain([-r,r]).nice();
+	y.domain(data.map(function(d) { return d.Age; }));
+
+	svgleft.selectAll(".bar")
+		/*.data(data)*/
+		.data(function(d) { return d; })
+		.enter().append("rect")
+		.attr("class", function(d) { return "bar bar--" + (d.Sex == 1 ? "women" : "men"); })
+		.attr("x", function(d) { return x(d.Sex == 1 ? -Math.abs(d.People - 0) : 0); })
+		.attr("y", function(d) { return y(d.Age); })
+		.attr("width", function(d) { return Math.abs(x(d.People) - x(0)); })
+		.attr("height", y.rangeBand());
+	
+	svgleft.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis);
+	
+	svgleft.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(" + x(0) + ",0)")
+		.call(yAxis);
+
+	svgright.selectAll(".bar")
+		.data(data)
+		.enter().append("rect")
+		.attr("class", function(d) { return "bar bar--" + (d.Sex == 1 ? "women" : "men"); })
+		.attr("x", function(d) { return x(d.Sex == 1 ? -Math.abs(d.People - 0) : 0); })
+		.attr("y", function(d) { return y(d.Age); })
+		.attr("width", function(d) { return Math.abs(x(d.People) - x(0)); })
+		.attr("height", y.rangeBand());
+
+	svgright.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")")
+		.call(xAxis);
+	
+	svgright.append("g")
+		.attr("class", "y axis")
+		.attr("transform", "translate(" + x(0) + ",0)")
+		.call(yAxis);
+		
+});
+
+function type(d) {
+	d.People = +d.People;
+	return d;
+}
+
+function foryear(d) {
+	if(d.Year == 1900)
+	return d;
+}
+</script>
+</body>
+</html>

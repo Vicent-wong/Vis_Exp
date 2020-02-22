@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html style="height: 100%">
+   <head>
+			<meta charset="utf-8">
+			<title>radial tree</title>
+			<script src="echarts.js"></script>
+			<script src="https://cdn.staticfile.org/jquery/1.10.2/jquery.min.js"></script>
+			<!-- 引入 echarts.js,下载至本地 http://www.echartsjs.com/download.html-->
+   </head>
+   <body style="height: 100%; margin: 0">
+       <div id="container" style="height: 100%"></div>
+       <script type="text/javascript">
+		var dom = document.getElementById("container");
+		var myChart = echarts.init(dom);
+		var app = {};
+		option = null;
+		myChart.showLoading();
+		$.get('ice-bucket-challenge.json', function (data) {
+			myChart.hideLoading();
+
+			myChart.setOption(option = {
+				tooltip: {
+					trigger: 'item',
+					triggerOn: 'mousemove'
+				},
+				series: [
+					{
+						type: 'tree',
+
+						data: [data],
+
+						top: '18%',
+						bottom: '14%',
+
+						layout: 'radial',
+
+						symbol: 'emptyCircle',
+
+						symbolSize: 7,
+
+						initialTreeDepth: 3,
+
+						animationDurationUpdate: 750
+
+					}
+				]
+			});
+		});;
+		if (option && typeof option === "object") {
+			myChart.setOption(option, true);
+		}
+       </script>
+   </body>
+</html>
